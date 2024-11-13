@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conduit Fill Calculator</title>
+<style>
+    /* General Styling */
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    .container { max-width: 500px; margin: auto; padding: 20px; }
+    label, button { display: block; margin: 15px 0 5px; }
+    input, select { width: 100%; padding: 12px; font-size: 16px; }
+    .conductor-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .result, .summary { margin-top: 20px; font-weight: bold; }
+    .error { color: red; font-weight: bold; }
+    .remove-btn { background: #ff4c4c; color: white; border: none; padding: 8px; font-size: 14px; cursor: pointer; }
+    .clear-btn { background: #007bff; color: white; border: none; padding: 12px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    .summary, .result { font-size: 18px; }
+
+    /* Success and Failure Icons */
+    .success-icon, .failure-icon {
+        font-size: 24px;
+        vertical-align: middle;
+        margin-right: 10px;
+    }
+    .success-icon { color: green; }
+    .failure-icon { color: red; }
+
+    /* Tooltip Styling */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+    }
+    .tooltip .tooltip-text {
+        visibility: hidden;
+        width: 200px;
+        background-color: #333;
+        color: #fff;
+        text-align: center;
+        border-radius: 5px;
+        padding: 10px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%; /* Position the tooltip above the icon */
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 14px;
+    }
+    .tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    /* Mobile Responsive Styles */
+    @media (max-width: 600px) {
+    .container { padding: 15px; }
+    label { font-size: 16px; }
+    .conductor-group { flex-direction: column; }
+    .conductor-group input { width: 93%; }
+    .remove-btn, .clear-btn { padding: 10px; font-size: 16px; }
+    input, select { padding: 10px; font-size: 16px; }
+        .summary, .result { font-size: 16px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Conduit Fill Calculator</h1>
+
+    <!-- Container for conductor inputs -->
+    <div id="conductor-container">
+        <div class="conductor-group">
+            <select class="conductor-size" onchange="calculateFill()">
+                <option value="13.33">14 AWG - 13.33 mm²</option>
+                <option value="16.62">12 AWG - 16.62 mm²</option>
+                <option value="21.48">10 AWG - 21.48 mm²</option>
+                <option value="28.18">8 AWG - 28.18 mm²</option>
+                <option value="46.69">6 AWG - 46.69 mm²</option>
+                <option value="62.63">4 AWG - 62.63 mm²</option>
+                <option value="72.99">3 AWG - 72.99 mm²</option>
+                <option value="85.93">2 AWG - 85.93 mm²</option>
+                <option value="122.52">1 AWG - 122.52 mm²</option>
+                <option value="143.78">1/0 - 143.78 mm²</option>
+                <option value="169.72">2/0 - 169.72 mm²</option>
+                <option value="201.06">3/0 - 201.06 mm²</option>
+                <option value="239.70">4/0 - 239.70 mm²</option>
+                <option value="288.63">250 KCM - 288.63 mm²</option>
+                <option value="332.0">300 KCM - 332.0 mm²</option>
+                <option value="372.91">350 KCM - 372.91 mm²</option>
+                <option value="417.28">400 KCM - 417.28 mm²</option>
+                <option value="458.82">450 KCM - 458.82 mm²</option>
+                <option value="499.16">500 KCM - 499.16 mm²</option>
+                <option value="582.78">600 KCM - 582.78 mm²</option>
+                <option value="662.8">700 KCM - 662.8 mm²</option>
+                <option value="702.62">750 KCM - 702.62 mm²</option>
+                <option value="742.64">800 KCM - 742.64 mm²</option>
+                <option value="821.94">900 KCM - 821.94 mm²</option>
+                <option value="898.33">1000 KCM - 898.33 mm²</option>
+            </select>
+            <input type="number" class="conductor-quantity" placeholder="Quantity" min="1" value="1" onchange="calculateFill()" pattern="\d*" inputmode="numeric">
+            <button type="button" class="remove-btn" onclick="removeConductor(this)">Remove</button>
+        </div>
+    </div>
+
+    <!-- Button to add more conductors -->
+    <button type="button" onclick="addConductor()">Add Another Conductor</button>
+    <button type="button" class="clear-btn" onclick="clearAll()">Clear All</button>
+
+    <!-- Conduit Type Selection with Tooltip -->
+    <label for="conduit-type">
+        Select Conduit Type:
+        <span class="tooltip">
+            ℹ️
+            <span class="tooltip-text">The type of conduit material affects internal diameter and capacity.</span>
+        </span>
+    </label>
+    <select id="conduit-type" onchange="updateTradeSizes()">
+        <option value="emt">Electrical Metallic Tubing (EMT)</option>
+        <option value="pvc">Rigid PVC Conduit</option>
+        <option value="ent">Electrical Non-Metallic Tubing (ENT)</option>
+        <option value="rigid">Rigid Metal Conduit</option>
+        <option value="db2">DBII Conduit</option>
+        <option value="nmlt">Non-metallic Liquid Tight Conduit</option>
+        <option value="mlt">Metallic Liquid Tight Conduit</option>
+        <option value="fmt">Flexible Metallic Conduit</option>
+    </select>
+
+    <!-- Trade Size Selection with Tooltip -->
+    <label for="trade-size">
+        Select Trade Size:
+        <span class="tooltip">
+            ℹ️
+            <span class="tooltip-text">Trade size refers to standardized conduit diameters. 40% fill is the maximum allowable space usage.</span>
+        </span>
+    </label>
+    <select id="trade-size" onchange="calculateFill()"></select>
+
+    <!-- Inline Summary of Selected Conductors -->
+    <div id="summary" class="summary"></div>
+
+    <!-- Result Display with Success/Failure Icon -->
+    <div id="result" class="result"></div>
+</div>
+
+<script>
+    // Conduit data based on Table 9G (sample values)
+    const conduitData = {
+        emt: {
+            "Trade Size 16 (1/2'')": 74.51,
+            "Trade Size 21 (3/4'')": 132.03,
+            "Trade Size 27 (1'')": 215.65,
+            "Trade Size 35 (1-1/4'')": 376.1,
+            "Trade Size 41 (1-1/2'')": 515.3,
+            "Trade Size 53 (2'')": 852.76,
+            "Trade Size 63 (2-1/2'')": 1513.1,
+            "Trade Size 78 (3'')": 2280.49,
+            "Trade Size 91 (3-1/2'')": 2980.35,
+            "Trade Size 103 (4'')": 3801.33,
+            //"Trade Size 129 (5'')": 500,
+            //"Trade Size 155 (6'')": 500,
+            //"Trade Size 200 (8'')": 500
+        },
+        pvc: {
+            "Trade Size 16 (1/2'')": 66.69,
+            "Trade Size 21 (3/4'')": 122.79,
+            "Trade Size 27 (1'')": 202.68,
+            "Trade Size 35 (1-1/4'')": 316.69,
+            "Trade Size 41 (1-1/2'')": 456.04,
+            "Trade Size 53 (2'')": 810.73,
+            "Trade Size 63 (2-1/2'')": 1180.51,
+            "Trade Size 78 (3'')": 1824.15,
+            "Trade Size 91 (3-1/2'')": 2455.02,
+            "Trade Size 103 (4'')": 3147.88,
+            "Trade Size 129 (5'')": 4975.72,
+            "Trade Size 155 (6'')": 7045.04,
+            "Trade Size 200 (8'')": 12489.83
+        },
+        rigid: {
+            "Trade Size 16 (1/2'')": 80.93,
+            "Trade Size 21 (3/4'')": 141.6,
+            "Trade Size 27 (1'')": 229.02,
+            "Trade Size 35 (1-1/4'')": 393.91,
+            "Trade Size 41 (1-1/2'')": 534.56,
+            "Trade Size 53 (2'')": 879.48,
+            "Trade Size 63 (2-1/2'')": 1255.62,
+            "Trade Size 78 (3'')": 1935.43,
+            "Trade Size 91 (3-1/2'')": 2583.29,
+            "Trade Size 103 (4'')": 3324.51,
+            "Trade Size 129 (5'')": 5215.77,
+            "Trade Size 155 (6'')": 7524.32,
+            //"Trade Size 200 (8'')": 500
+        },
+        db2: {
+            //"Trade Size 16 (1/2'')": 74.51,
+            //"Trade Size 21 (3/4'')": 132.03,
+            //"Trade Size 27 (1'')": 215.65,
+            //"Trade Size 35 (1-1/4'')": 376.1,
+            //"Trade Size 41 (1-1/2'')": 515.3,
+            "Trade Size 53 (2'')": 810.73,
+            //"Trade Size 63 (2-1/2'')": 1513.1,
+            "Trade Size 78 (3'')": 1824.15,
+            "Trade Size 91 (3-1/2'')": 2455.02,
+            "Trade Size 103 (4'')": 3147.88,
+            "Trade Size 129 (5'')": 5015.34,
+            "Trade Size 155 (6'')": 7045.04,
+            //"Trade Size 200 (8'')": 500
+        },
+        nmlt: {
+            "Trade Size 16 (1/2'')": 75.38,
+            "Trade Size 21 (3/4'')": 131.38,
+            "Trade Size 27 (1'')": 210.9,
+            "Trade Size 35 (1-1/4'')": 374.8,
+            "Trade Size 41 (1-1/2'')": 502.91,
+            "Trade Size 53 (2'')": 839.39,
+            //"Trade Size 63 (2-1/2'')": 1513.1,
+            //"Trade Size 78 (3'')": 2280.49,
+            //"Trade Size 91 (3-1/2'')": 2980.35,
+            //"Trade Size 103 (4'')": 3801.33,
+            //"Trade Size 129 (5'')": 500,
+            //"Trade Size 155 (6'')": 500,
+            //"Trade Size 200 (8'')": 500
+        },
+        mlt: {
+            "Trade Size 16 (1/2'')": 78.43,
+            "Trade Size 21 (3/4'')": 136.31,
+            "Trade Size 27 (1'')": 219.62,
+            "Trade Size 35 (1-1/4'')": 385.95,
+            "Trade Size 41 (1-1/2'')": 502.91,
+            "Trade Size 53 (2'')": 827.09,
+            "Trade Size 63 (2-1/2'')": 1246.5,
+            "Trade Size 78 (3'')": 1910.36,
+            "Trade Size 91 (3-1/2'')": 2482.87,
+            "Trade Size 103 (4'')": 3242.93,
+            //"Trade Size 129 (5'')": 500,
+            //"Trade Size 155 (6'')": 500,
+            //"Trade Size 200 (8'')": 500
+        },
+        fmt: {
+            "Trade Size 16 (1/2'')": 79.22,
+            "Trade Size 21 (3/4'')": 133.58,
+            "Trade Size 27 (1'')": 202.68,
+            "Trade Size 35 (1-1/4'')": 316.69,
+            "Trade Size 41 (1-1/2'')": 456.04,
+            "Trade Size 53 (2'')": 810.73,
+            "Trade Size 63 (2-1/2'')": 1266.77,
+            "Trade Size 78 (3'')": 1824.15,
+            "Trade Size 91 (3-1/2'')": 2482.87,
+            "Trade Size 103 (4'')": 3242.93,
+            //"Trade Size 129 (5'')": 500,
+            //"Trade Size 155 (6'')": 500,
+            //"Trade Size 200 (8'')": 500
+        },
+        ent: {
+            "Trade Size 16 (1/2'')": 66.78,
+            "Trade Size 21 (3/4'')": 121.43,
+            "Trade Size 27 (1'')": 202.2,
+            "Trade Size 35 (1-1/4'')": 357.42,
+            "Trade Size 41 (1-1/2'')": 491.91,
+            "Trade Size 53 (2'')": 822.91,
+            //"Trade Size 63 (2-1/2'')": 1513.1,
+            //"Trade Size 78 (3'')": 2280.49,
+            //"Trade Size 91 (3-1/2'')": 2980.35,
+            //"Trade Size 103 (4'')": 3801.33,
+            //"Trade Size 129 (5'')": 500,
+            //"Trade Size 155 (6'')": 500,
+            //"Trade Size 200 (8'')": 500
+        }
+    };
+
+    function updateTradeSizes() {
+        const conduitType = document.getElementById('conduit-type').value;
+        const tradeSizeSelect = document.getElementById('trade-size');
+        tradeSizeSelect.innerHTML = '';
+
+        for (const [tradeSize, area] of Object.entries(conduitData[conduitType])) {
+            const option = document.createElement('option');
+            option.value = area;
+            option.textContent = `${tradeSize} - ${area} mm² (40% fill)`;
+            tradeSizeSelect.appendChild(option);
+        }
+
+        calculateFill();
+    }
+
+    function addConductor() {
+        const conductorGroup = document.createElement('div');
+        conductorGroup.className = 'conductor-group';
+
+        conductorGroup.innerHTML = `
+            <select class="conductor-size" onchange="calculateFill()">
+                <option value="13.33">14 AWG - 13.33 mm²</option>
+                <option value="16.62">12 AWG - 16.62 mm²</option>
+                <option value="21.48">10 AWG - 21.48 mm²</option>
+                <option value="28.18">8 AWG - 28.18 mm²</option>
+                <option value="46.69">6 AWG - 46.69 mm²</option>
+                <option value="62.63">4 AWG - 62.63 mm²</option>
+                <option value="72.99">3 AWG - 72.99 mm²</option>
+                <option value="85.93">2 AWG - 85.93 mm²</option>
+                <option value="122.52">1 AWG - 122.52 mm²</option>
+                <option value="143.78">1/0 - 143.78 mm²</option>
+                <option value="169.72">2/0 - 169.72 mm²</option>
+                <option value="201.06">3/0 - 201.06 mm²</option>
+                <option value="239.70">4/0 - 239.70 mm²</option>
+                <option value="288.63">250 KCM - 288.63 mm²</option>
+                <option value="332.0">300 KCM - 332.0 mm²</option>
+                <option value="372.91">350 KCM - 372.91 mm²</option>
+                <option value="417.28">400 KCM - 417.28 mm²</option>
+                <option value="458.82">450 KCM - 458.82 mm²</option>
+                <option value="499.16">500 KCM - 499.16 mm²</option>
+                <option value="582.78">600 KCM - 582.78 mm²</option>
+                <option value="662.8">700 KCM - 662.8 mm²</option>
+                <option value="702.62">750 KCM - 702.62 mm²</option>
+                <option value="742.64">800 KCM - 742.64 mm²</option>
+                <option value="821.94">900 KCM - 821.94 mm²</option>
+                <option value="898.33">1000 KCM - 898.33 mm²</option>
+            </select>
+            <input type="number" class="conductor-quantity" placeholder="Quantity" min="1" value="1" onchange="calculateFill()">
+            <button type="button" class="remove-btn" onclick="removeConductor(this)">Remove</button>
+        `;
+
+        document.getElementById('conductor-container').appendChild(conductorGroup);
+        calculateFill();
+    }
+
+    function removeConductor(button) {
+        button.parentElement.remove();
+        calculateFill();
+    }
+
+    function clearAll() {
+        document.getElementById('conductor-container').innerHTML = '';
+        addConductor();
+        document.getElementById('result').innerHTML = '';
+        document.getElementById('summary').innerHTML = '';
+        document.getElementById('conduit-type').selectedIndex = 0;
+        updateTradeSizes();
+    }
+
+    function calculateFill() {
+        const conductorGroups = document.querySelectorAll('.conductor-group');
+        let totalConductorArea = 0;
+        let error = false;
+        let summaryText = '<strong>Selected Conductors:</strong><br>';
+
+        conductorGroups.forEach(group => {
+            const conductorSize = parseFloat(group.querySelector('.conductor-size').value);
+            const conductorQuantity = parseInt(group.querySelector('.conductor-quantity').value);
+
+            if (isNaN(conductorQuantity) || conductorQuantity <= 0) {
+                document.getElementById("result").innerHTML = `<div class="error">Please enter a valid quantity for each conductor.</div>`;
+                error = true;
+                return;
+            }
+
+            const area = conductorSize * conductorQuantity;
+            totalConductorArea += area;
+            summaryText += `Size: ${conductorSize} mm², Quantity: ${conductorQuantity}, Area: ${area.toFixed(2)} mm²<br>`;
+        });
+
+        if (error) return;
+
+        const conduitArea = parseFloat(document.getElementById("trade-size").value);
+
+        if (isNaN(conduitArea)) {
+            document.getElementById("result").innerHTML = `<div class="error">Please select a valid conduit size.</div>`;
+            document.getElementById("summary").innerHTML = summaryText;
+            return;
+        }
+
+        let resultText = `Total Conductor Area: ${totalConductorArea.toFixed(2)} mm²<br>`;
+        resultText += `Conduit Allowable Area: ${conduitArea.toFixed(2)} mm²<br>`;
+
+        if (totalConductorArea <= conduitArea) {
+            resultText = `<span class="success-icon">&#10004;</span>` + resultText;
+            resultText += `<span style="color: green;">The conductors fit within the conduit.</span>`;
+        } else {
+            resultText = `<span class="failure-icon">&#10008;</span>` + resultText;
+            resultText += `<span style="color: red;">The conductors do NOT fit within the conduit.</span>`;
+        }
+
+        document.getElementById("summary").innerHTML = summaryText;
+        document.getElementById("result").innerHTML = resultText;
+    }
+
+    updateTradeSizes();
+</script>
+
+</body>
+</html>
